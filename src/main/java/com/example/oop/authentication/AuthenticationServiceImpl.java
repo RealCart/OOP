@@ -1,6 +1,6 @@
-package authentication;
-import exceptions.AuthenticationException;
-import models.User;
+package com.example.oop.authentication;
+import com.example.oop.exceptions.AuthenticationException;
+import com.example.oop.models.User;
 
 import java.util.HashMap;
 import java.util.Map;

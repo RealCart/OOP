@@ -1,7 +1,7 @@
-package authentication;
+package com.example.oop.authentication;
 
-import models.User;
-import exceptions.AuthenticationException;
+import com.example.oop.models.User;
+import com.example.oop.exceptions.AuthenticationException;
 
 public interface AuthenticationService {
     User login(String email, String password) throws AuthenticationException;

@@ -1,4 +1,4 @@
-package payments;
+package com.example.oop.payments;
 
 public class PayPalPayment implements Payment {
     private String emailAccount;

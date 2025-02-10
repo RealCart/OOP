@@ -1,4 +1,4 @@
-package notifications;
+package com.example.oop.notifications;
 
 public class SMSNotification implements Notification {
     @Override

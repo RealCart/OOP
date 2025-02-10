@@ -1,38 +1,59 @@
 package com.example.oop;
 
-import authentication.AuthenticationService;
-import authentication.AuthenticationServiceImpl;
-import exceptions.AuthenticationException;
+import com.example.oop.authentication.AuthenticationService;
+import com.example.oop.authentication.AuthenticationServiceImpl;
+import com.example.oop.models.Customer;
+import com.example.oop.models.User;
+import com.example.oop.store.Item;
+import com.example.oop.store.Store;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
-import models.Admin;
-import models.Customer;
-import models.User;
-import store.Item;
-import store.Store;
+
+import java.util.List;
 
 public class MainApp extends Application {
-
     private final AuthenticationService authService = new AuthenticationServiceImpl();
     private final Store store = new Store();
+    private final ChatService chatService = new ChatService();
+    private Scene topbarScene;
+    private Scene loginScene;
+    private Scene registrationScene;
     private User currentUser;
+    private Cart cart;
 
     @Override
     public void init() {
-        authService.register(new Admin("Иван", "ivan@example.com", "admin123"));
-        authService.register(new Customer("Мария", "maria@example.com", "customer123"));
+        DBManager.initDatabase();
     }
 
     @Override
     public void start(Stage primaryStage) {
-        primaryStage.setTitle("Система входа");
+        VBox topbarLayout = new VBox(10);
+        topbarLayout.setAlignment(Pos.TOP_CENTER);
+        topbarLayout.setPadding(new Insets(10));
 
+        Label welcomeLabel = new Label("Добро пожаловать в приложение!");
+        Button loginButton = new Button("Логин");
+        loginButton.setOnAction(e -> showLogin(primaryStage));
+        Button registerButton = new Button("Регистрация");
+        registerButton.setOnAction(e -> showRegistration(primaryStage));
+
+        HBox buttonBox = new HBox(10, loginButton, registerButton);
+        buttonBox.setAlignment(Pos.CENTER);
+        topbarLayout.getChildren().addAll(welcomeLabel, buttonBox);
+
+        topbarScene = new Scene(topbarLayout, 400, 300);
+        primaryStage.setScene(topbarScene);
+        primaryStage.show();
+    }
+
+    private void showLogin(Stage primaryStage) {
         Label emailLabel = new Label("Email:");
         TextField emailField = new TextField();
         Label passwordLabel = new Label("Пароль:");
@@ -40,101 +61,179 @@ public class MainApp extends Application {
         Button loginButton = new Button("Войти");
         Label loginMessage = new Label();
 
-        VBox loginLayout = new VBox(10, emailLabel, emailField, passwordLabel, passwordField, loginButton, loginMessage);
+        Button backButton = new Button("Назад");
+        backButton.setOnAction(e -> primaryStage.setScene(topbarScene));
+
+        VBox loginLayout = new VBox(10, backButton, emailLabel, emailField, passwordLabel, passwordField, loginButton, loginMessage);
         loginLayout.setAlignment(Pos.CENTER);
         loginLayout.setPadding(new Insets(20));
-
-        Scene loginScene = new Scene(loginLayout, 300, 250);
-        primaryStage.setScene(loginScene);
-        primaryStage.show();
+        loginScene = new Scene(loginLayout, 400, 300);
 
         loginButton.setOnAction(event -> {
             String email = emailField.getText();
             String password = passwordField.getText();
-
             try {
                 currentUser = authService.login(email, password);
+                cart = new Cart();
                 showMainScreen(primaryStage);
-            } catch (AuthenticationException ex) {
+            } catch (Exception ex) {
                 loginMessage.setText("Ошибка: " + ex.getMessage());
             }
         });
+
+        primaryStage.setScene(loginScene);
     }
 
-    private void showMainScreen(Stage stage) {
-        stage.setTitle("Магазин - Добро пожаловать, " + currentUser.getName());
+    private void showRegistration(Stage primaryStage) {
+        Label nameLabel = new Label("Имя:");
+        TextField nameField = new TextField();
+        Label emailLabel = new Label("Email:");
+        TextField emailField = new TextField();
+        Label passwordLabel = new Label("Пароль:");
+        PasswordField passwordField = new PasswordField();
+        Button registerButton = new Button("Зарегистрироваться");
+        Label registrationMessage = new Label();
 
+        Button backButton = new Button("Назад");
+        backButton.setOnAction(e -> primaryStage.setScene(topbarScene));
+
+        VBox registrationLayout = new VBox(10, backButton, nameLabel, nameField, emailLabel, emailField, passwordLabel, passwordField, registerButton, registrationMessage);
+        registrationLayout.setAlignment(Pos.CENTER);
+        registrationLayout.setPadding(new Insets(20));
+        registrationScene = new Scene(registrationLayout, 400, 300);
+
+        registerButton.setOnAction(event -> {
+            String name = nameField.getText();
+            String email = emailField.getText();
+            String password = passwordField.getText();
+
+            if (name.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                registrationMessage.setText("Заполните все поля!");
+                return;
+            }
+
+            try {
+                User newUser = new Customer(name, email, password);
+                authService.register(newUser);
+                registrationMessage.setText("Регистрация успешна! Теперь вы можете войти.");
+            } catch (Exception ex) {
+                registrationMessage.setText("Ошибка: " + ex.getMessage());
+            }
+        });
+
+        primaryStage.setScene(registrationScene);
+    }
+
+    private void showMainScreen(Stage primaryStage) {
         Label welcomeLabel = new Label("Добро пожаловать, " + currentUser.getName());
-        Label balanceLabel = new Label("Баланс: " + currentUser.getBalance() + " руб.");
-
+        Label balanceLabel = new Label("Баланс: " + currentUser.getBalance() + " тг.");
         ListView<Item> itemListView = new ListView<>();
         itemListView.getItems().addAll(store.getItems());
 
-        Button purchaseButton = new Button("Купить выбранный товар");
-        purchaseButton.setOnAction(event -> {
+        Button addToCartButton = new Button("Добавить в корзину");
+        addToCartButton.setOnAction(e -> {
             Item selectedItem = itemListView.getSelectionModel().getSelectedItem();
             if (selectedItem != null) {
-                showPurchaseDialog(selectedItem, stage, balanceLabel);
+                cart.addItem(selectedItem);
+                showAlert("Информация", "Товар добавлен в корзину");
             }
         });
 
-        VBox mainLayout = new VBox(10, welcomeLabel, balanceLabel, itemListView, purchaseButton);
+        Button showCartButton = new Button("Корзина");
+        showCartButton.setOnAction(e -> showCartDialog(primaryStage));
+
+        Button chatButton = new Button("Чат с техподдержкой");
+        chatButton.setOnAction(e -> showChatDialog(primaryStage));
+
+        Button logoutButton = new Button("Выйти");
+        logoutButton.setOnAction(e -> {
+            currentUser = null;
+            primaryStage.setScene(topbarScene);
+        });
+
+        HBox topBox = new HBox(10, welcomeLabel, balanceLabel, logoutButton);
+        topBox.setAlignment(Pos.CENTER);
+
+        VBox mainLayout = new VBox(10, topBox, itemListView, addToCartButton, showCartButton, chatButton);
         mainLayout.setPadding(new Insets(15));
-        Scene mainScene = new Scene(mainLayout, 400, 350);
-        stage.setScene(mainScene);
-        stage.show();
+        Scene mainScene = new Scene(mainLayout, 400, 400);
+
+        primaryStage.setScene(mainScene);
     }
 
-    /**
-     * Отображает диалог покупки для выбранного товара.
-     *
-     * @param item         выбранный товар
-     * @param owner        родительское окно
-     * @param balanceLabel метка для обновления баланса
-     */
-    private void showPurchaseDialog(Item item, Stage owner, Label balanceLabel) {
+    private void showCartDialog(Stage owner) {
         Stage dialog = new Stage();
-        dialog.initModality(Modality.WINDOW_MODAL);
-        dialog.initOwner(owner);
-        dialog.setTitle("Покупка: " + item.getName());
+        dialog.setTitle("Корзина");
+        ListView<Item> cartListView = new ListView<>();
+        cartListView.getItems().addAll(cart.getItems());
 
-        Label priceLabel = new Label("Цена: " + item.getPrice() + " руб.");
+        Label totalLabel = new Label("Сумма: " + cart.getTotal() + " тг.");
 
-        // Выбор способа оплаты с помощью переключателей
-        Label paymentLabel = new Label("Выберите способ оплаты:");
-        ToggleGroup paymentGroup = new ToggleGroup();
-        RadioButton creditCardRadio = new RadioButton("Кредитная карта");
-        creditCardRadio.setToggleGroup(paymentGroup);
-        RadioButton paypalRadio = new RadioButton("PayPal");
-        paypalRadio.setToggleGroup(paymentGroup);
-        creditCardRadio.setSelected(true); // по умолчанию выбран способ "Кредитная карта"
-
-        Button confirmButton = new Button("Подтвердить покупку");
-        Label messageLabel = new Label();
-
-        VBox dialogLayout = new VBox(10, priceLabel, paymentLabel, creditCardRadio, paypalRadio, confirmButton, messageLabel);
-        dialogLayout.setAlignment(Pos.CENTER);
-        dialogLayout.setPadding(new Insets(15));
-
-        Scene dialogScene = new Scene(dialogLayout, 300, 250);
-        dialog.setScene(dialogScene);
-        dialog.show();
-
-        confirmButton.setOnAction(event -> {
-            // Простейшая проверка баланса и обработка покупки
-            if (currentUser.getBalance() < item.getPrice()) {
-                messageLabel.setText("Недостаточно средств!");
+        Button purchaseButton = new Button("Оформить покупку");
+        purchaseButton.setOnAction(e -> {
+            double total = cart.getTotal();
+            if (currentUser.getBalance() < total) {
+                showAlert("Ошибка", "Недостаточно средств!");
             } else {
-                // Здесь можно добавить вызов метода processPayment у соответствующей реализации Payment.
-                // Для простоты примера мы просто вычтем сумму из баланса.
-                currentUser.deductBalance(item.getPrice());
-                balanceLabel.setText("Баланс: " + currentUser.getBalance() + " руб.");
-                messageLabel.setText("Покупка успешна!");
+                currentUser.deductBalance(total);
+                cart.clear();
+                cartListView.getItems().clear();
+                totalLabel.setText("Сумма: 0 тг.");
+                showAlert("Успех", "Покупка успешно оформлена!");
             }
         });
+
+        VBox dialogLayout = new VBox(10, cartListView, totalLabel, purchaseButton);
+        dialogLayout.setAlignment(Pos.CENTER);
+        dialogLayout.setPadding(new Insets(15));
+        Scene dialogScene = new Scene(dialogLayout, 300, 300);
+
+        dialog.setScene(dialogScene);
+        dialog.initOwner(owner);
+        dialog.show();
+    }
+
+    private void showChatDialog(Stage owner) {
+        Stage dialog = new Stage();
+        dialog.setTitle("Чат с техподдержкой");
+
+        TextArea chatArea = new TextArea();
+        chatArea.setEditable(false);
+        chatArea.setText(String.join("\n", chatService.getConversation(currentUser.getEmail(), "admin@example.com")));
+
+        TextField messageField = new TextField();
+        messageField.setPromptText("Введите сообщение...");
+
+        Button sendButton = new Button("Отправить");
+        sendButton.setOnAction(e -> {
+            String message = messageField.getText().trim();
+            if (!message.isEmpty()) {
+                chatService.sendMessage(currentUser.getEmail(), "admin@example.com", message);
+                chatArea.setText(String.join("\n", chatService.getConversation(currentUser.getEmail(), "admin@example.com")));
+                messageField.clear();
+            }
+        });
+
+        VBox chatLayout = new VBox(10, chatArea, messageField, sendButton);
+        chatLayout.setPadding(new Insets(15));
+        chatLayout.setAlignment(Pos.CENTER);
+
+        Scene chatScene = new Scene(chatLayout, 400, 400);
+        dialog.setScene(chatScene);
+        dialog.initOwner(owner);
+        dialog.show();
+    }
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     public static void main(String[] args) {
         launch(args);
     }
 }
+

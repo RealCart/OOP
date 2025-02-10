@@ -1,4 +1,4 @@
-package models;
+package com.example.oop.models;
 
 public abstract class User {
     private String name;

@@ -1,4 +1,4 @@
-package payments;
+package com.example.oop.payments;
 
 public class CreditCardPayment implements Payment {
     private String cardNumber;
